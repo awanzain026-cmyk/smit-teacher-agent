@@ -6,7 +6,7 @@ import { conversationService } from "./conversationService.js";
 import { messageRepo } from "../repositories/conversationRepo.js";
 import { usageRepo } from "../repositories/usageRepo.js";
 import { getLlm } from "./llmService.js";
-import { buildRagPrompt, RAG_SYSTEM_PROMPT } from "../lib/promptTemplates.js";
+import { buildRagPrompt, RAG_SYSTEM_PROMPT, GENERAL_SYSTEM_PROMPT } from "../lib/promptTemplates.js";
 import { ApiError } from "../lib/apiError.js";
 import { logger } from "../lib/logger.js";
 import type { ChatRequest } from "@smit/shared";
@@ -81,13 +81,23 @@ export class ChatService {
       const history = await conversationService.historyForChat(conversation.id);
       const trimmedHistory = ragService.trimHistory(history);
 
-      const { chunks, context } = await ragService.query({
-        userId,
-        question,
-        courseId: conversation.courseId ?? body.courseId ?? null,
-      });
+      let chunks: Awaited<ReturnType<typeof ragService.query>>["chunks"] = [];
+      let context = "";
+      let ragAvailable = true;
+      try {
+        const rag = await ragService.query({
+          userId,
+          question,
+          courseId: conversation.courseId ?? body.courseId ?? null,
+        });
+        chunks = rag.chunks;
+        context = rag.context;
+      } catch (err) {
+        ragAvailable = false;
+        logger.warn({ err, userId }, "RAG unavailable — falling back to plain chat");
+      }
 
-      if (chunks.length === 0) {
+      if (ragAvailable && chunks.length === 0) {
         const saved = await messageRepo.create({
           conversationId: conversation.id,
           userId,
@@ -101,8 +111,11 @@ export class ChatService {
         return;
       }
 
-      const sources = ragService.buildSources(chunks);
-      const prompt = buildRagPrompt(question, context);
+      const sources = ragAvailable ? ragService.buildSources(chunks) : [];
+      const prompt = ragAvailable
+        ? buildRagPrompt(question, context)
+        : history[history.length - 1]?.content ?? question;
+      const system = ragAvailable ? RAG_SYSTEM_PROMPT : GENERAL_SYSTEM_PROMPT;
 
       let content = "";
       let messageId: string | null = null;
@@ -113,7 +126,7 @@ export class ChatService {
       const provider = getLlm();
       const stream = provider.streamChat(
         [...trimmedHistory, { role: "user" as const, content: prompt }],
-        { system: RAG_SYSTEM_PROMPT, temperature: 0.3, maxTokens: 1024 },
+        { system, temperature: 0.3, maxTokens: 1024 },
       );
 
       for await (const delta of stream) {

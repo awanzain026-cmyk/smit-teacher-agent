@@ -18,21 +18,27 @@ packages/
 - **Backend**: Express 4 (ESM), Prisma ORM, JWT auth (access + refresh tokens),
   Zod validation, pino logging, rate limiting, Helmet, multer uploads.
 - **RAG pipeline**: PDF/DOCX/PPTX → text chunks → Gemini embeddings → Qdrant
-  vector search → Gemini chat with source citations. Gemini is the default LLM
-  provider; OpenRouter is supported as a fallback.
+  vector search → LLM chat with source citations. **LLM providers**: Sodeom
+  (free OpenAI-compatible proxy, no API key, chat only), Gemini (chat +
+  embeddings), or OpenRouter (chat only). With Sodeom/OpenRouter the app runs
+  with **zero keys** but document ingestion and cited answers are unavailable —
+  chat falls back to plain conversation.
 - **Database**: PostgreSQL (Neon recommended) via Prisma with committed migrations.
 
 ## Prerequisites
 
 - Node.js 20+ (`.nvmrc` pinned to 20)
 - Accounts: [Neon](https://neon.tech) (Postgres), [Qdrant Cloud](https://cloud.qdrant.io)
-  (vectors), [Google AI Studio](https://aistudio.google.com/apikey) (Gemini API key)
+  (vectors).
+- No AI key is required for the default **Sodeom** provider. Only add a free
+  [Google AI Studio](https://aistudio.google.com/apikey) key if you want
+  document ingestion + cited answers (`LLM_PROVIDER=gemini`).
 
 ## Local development
 
 ```bash
 npm install
-cp .env.example apps/api/.env   # fill in DATABASE_URL, QDRANT_URL, QDRANT_API_KEY, GEMINI_API_KEY, JWT secrets
+cp .env.example apps/api/.env   # fill in DATABASE_URL, QDRANT_URL, QDRANT_API_KEY, JWT secrets
 npm run db:generate             # prisma generate
 npm run db:deploy               # apply migrations to your Neon database
 npm run db:seed                 # creates admin@smit.edu.pk (password = ADMIN_SEED_SECRET)
@@ -104,8 +110,10 @@ in the `/admin` and `/settings` pages.
 
 See [`.env.example`](.env.example) for the full annotated list. Required in all
 environments: `DATABASE_URL`, `QDRANT_URL`, `JWT_ACCESS_SECRET`,
-`JWT_REFRESH_SECRET`, `ADMIN_SEED_SECRET`, plus `GEMINI_API_KEY` (or
-`OPENROUTER_API_KEY`) and `QDRANT_API_KEY` for the cloud vector DB.
+`JWT_REFRESH_SECRET`, `ADMIN_SEED_SECRET`, plus `QDRANT_API_KEY` for the cloud
+vector DB. Set `LLM_PROVIDER=sodeom` for zero-key chat (add `SODEOM_BASE_URL` /
+`SODEOM_MODEL` as needed), or `LLM_PROVIDER=gemini` with `GEMINI_API_KEY` to
+enable embeddings, ingestion, and cited answers.
 
 ## Notes
 

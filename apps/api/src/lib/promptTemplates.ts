@@ -8,6 +8,13 @@ STRICT RULES:
 5. Do not fabricate sources, page numbers, or documents.
 6. Use a clear, concise, tutorial-style tone appropriate for a student.`;
 
+export const GENERAL_SYSTEM_PROMPT = `You are the SMIT AI Teaching Agent, a helpful educational assistant for students of Saylani Mass IT Training.
+
+RULES:
+1. Be clear, concise, and tutorial-style.
+2. If the student asks about uploaded course material, note that document-based answers are currently unavailable.
+3. Do not fabricate sources or page numbers.`;
+
 export function buildRagPrompt(question: string, context: string): string {
   return [
     `<context>`,

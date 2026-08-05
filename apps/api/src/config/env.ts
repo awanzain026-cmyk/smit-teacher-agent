@@ -12,13 +12,15 @@ const envSchema = z.object({
   QDRANT_API_KEY: z.string().optional(),
   QDRANT_COLLECTION: z.string().default("smit_course_docs"),
 
-  LLM_PROVIDER: z.enum(["gemini", "openrouter"]).default("gemini"),
+  LLM_PROVIDER: z.enum(["gemini", "openrouter", "sodeom"]).default("gemini"),
   GEMINI_API_KEY: z.string().optional(),
   GEMINI_CHAT_MODEL: z.string().default("gemini-2.0-flash"),
   GEMINI_EMBED_MODEL: z.string().default("text-embedding-004"),
   EMBEDDING_DIM: z.coerce.number().int().positive().default(768),
   OPENROUTER_API_KEY: z.string().optional(),
   OPENROUTER_MODEL: z.string().default("openai/gpt-4o-mini"),
+  SODEOM_BASE_URL: z.string().url().default("https://sodeom.com/v1"),
+  SODEOM_MODEL: z.string().default("gpt-4o-mini"),
 
   JWT_ACCESS_SECRET: z.string().min(32, "JWT_ACCESS_SECRET must be at least 32 chars"),
   JWT_REFRESH_SECRET: z.string().min(32, "JWT_REFRESH_SECRET must be at least 32 chars"),

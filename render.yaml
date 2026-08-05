@@ -15,7 +15,11 @@ services:
       - key: QDRANT_COLLECTION
         value: smit_course_docs
       - key: LLM_PROVIDER
-        value: gemini
+        value: sodeom
+      - key: SODEOM_BASE_URL
+        value: https://sodeom.com/v1
+      - key: SODEOM_MODEL
+        value: gpt-4o-mini
       - key: GEMINI_CHAT_MODEL
         value: gemini-2.0-flash
       - key: GEMINI_EMBED_MODEL
