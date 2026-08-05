@@ -116,7 +116,7 @@ export class DocumentService {
 
   async delete(id: string, userId: string, isAdmin: boolean): Promise<void> {
     const doc = await this.getOwned(id, userId, isAdmin);
-    await qdrantService.deleteByDocument(doc.id);
+    await this.bestEffortDeleteVectors(doc.id);
     await documentRepo.delete(doc.id);
     await deleteStoredFile(storedPath(doc.storedName));
   }
@@ -126,10 +126,18 @@ export class DocumentService {
     if (doc.status === "PROCESSING") {
       throw ApiError.conflict("Document is already being processed");
     }
-    await qdrantService.deleteByDocument(doc.id);
+    await this.bestEffortDeleteVectors(doc.id);
     const reset = await documentRepo.update(doc.id, { status: "PENDING", failReason: null });
     await this.queueProcessing(reset);
     return reset;
+  }
+
+  private async bestEffortDeleteVectors(documentId: string): Promise<void> {
+    try {
+      await qdrantService.deleteByDocument(documentId);
+    } catch (err) {
+      logger.warn({ err, documentId }, "Qdrant cleanup skipped — vector store unavailable");
+    }
   }
 
   async coursesFor(userId: string) {
