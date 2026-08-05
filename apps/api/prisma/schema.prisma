@@ -1,0 +1,142 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  STUDENT
+  ADMIN
+}
+
+enum DocStatus {
+  PENDING
+  PROCESSING
+  READY
+  FAILED
+}
+
+enum UsageKind {
+  EMBEDDING
+  CHAT
+  DOC_PROCESS
+}
+
+model User {
+  id           String           @id @default(uuid()) @db.Uuid
+  name         String           @db.VarChar(120)
+  email        String           @unique @db.VarChar(254)
+  passwordHash String           @db.VarChar(120)
+  role         Role             @default(STUDENT)
+  avatarUrl    String?          @db.VarChar(500)
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+
+  refreshTokens RefreshToken[]
+  documents     Document[]
+  coursesOwned  Course[]        @relation("CourseAdmin")
+  conversations Conversation[]
+  usageLogs     UsageLog[]
+  messages      Message[]
+
+  @@index([role])
+}
+
+model RefreshToken {
+  id        String    @id @default(uuid()) @db.Uuid
+  tokenHash String    @unique @db.VarChar(64)
+  userId    String    @db.Uuid
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userAgent String?   @db.VarChar(300)
+  expiresAt DateTime
+  revokedAt DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+model Course {
+  id          String   @id @default(uuid()) @db.Uuid
+  name        String   @db.VarChar(160)
+  description String?  @db.Text
+  adminId     String   @db.Uuid
+  admin       User     @relation("CourseAdmin", fields: [adminId], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  documents     Document[]
+  conversations Conversation[]
+
+  @@index([adminId])
+}
+
+model Document {
+  id           String    @id @default(uuid()) @db.Uuid
+  userId       String    @db.Uuid
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  courseId     String?   @db.Uuid
+  course       Course?   @relation(fields: [courseId], references: [id], onDelete: SetNull)
+  originalName String    @db.VarChar(255)
+  storedName   String    @unique @db.VarChar(64)
+  mimeType     String    @db.VarChar(120)
+  sizeBytes    Int
+  status       DocStatus @default(PENDING)
+  pageCount    Int?
+  chunkCount   Int?
+  failReason   String?   @db.Text
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@index([userId])
+  @@index([courseId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+model Conversation {
+  id         String   @id @default(uuid()) @db.Uuid
+  userId     String   @db.Uuid
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title      String   @db.VarChar(255)
+  courseId   String?  @db.Uuid
+  course     Course?  @relation(fields: [courseId], references: [id], onDelete: SetNull)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  messages Message[]
+
+  @@index([userId, updatedAt(sort: Desc)])
+}
+
+model Message {
+  id             String   @id @default(uuid()) @db.Uuid
+  conversationId String   @db.Uuid
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  userId         String   @db.Uuid
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role           String   @db.VarChar(12)
+  content        String   @db.Text
+  sources        Json?
+  createdAt      DateTime @default(now())
+
+  @@index([conversationId, createdAt])
+}
+
+model UsageLog {
+  id        String    @id @default(uuid()) @db.Uuid
+  userId    String    @db.Uuid
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  kind      UsageKind
+  model     String?   @db.VarChar(120)
+  tokensIn  Int?
+  tokensOut Int?
+  createdAt DateTime  @default(now())
+
+  @@index([userId])
+  @@index([kind])
+  @@index([createdAt])
+}

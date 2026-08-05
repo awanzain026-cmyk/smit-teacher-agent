@@ -1,0 +1,36 @@
+# dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# builds
+dist/
+.next/
+out/
+build/
+coverage/
+*.tsbuildinfo
+
+# env
+.env
+.env.local
+.env*.local
+
+# runtime
+storage/
+uploads/
+*.log
+npm-debug.log*
+
+# editor / os
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# testing
+playwright-report/
+test-results/
+
+# local tooling
+.playwright-mcp/

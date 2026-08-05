@@ -1,0 +1,36 @@
+{
+  "name": "smit-teacher-agent",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "concurrently -n api,web -c blue,magenta \"npm run dev -w @smit/api\" \"npm run dev -w @smit/web\"",
+    "dev:api": "npm run dev -w @smit/api",
+    "dev:web": "npm run dev -w @smit/web",
+    "build": "npm run build -w @smit/shared && npm run build -w @smit/api && npm run build -w @smit/web",
+    "build:api": "npm run build -w @smit/shared && npm run build -w @smit/api",
+    "build:web": "npm run build -w @smit/web",
+    "lint": "npm run lint -w @smit/api && npm run lint -w @smit/web",
+    "typecheck": "npm run typecheck -w @smit/shared && npm run typecheck -w @smit/api && npm run typecheck -w @smit/web",
+    "test": "npm run test -w @smit/api",
+    "db:generate": "npm run db:generate -w @smit/api",
+    "db:deploy": "npm run db:deploy -w @smit/api",
+    "db:migrate": "npm run db:migrate -w @smit/api",
+    "db:seed": "npm run db:seed -w @smit/api",
+    "start:api": "npm run start:prod -w @smit/api"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "multer": "^2.2.0",
+    "next": "^15.5.22",
+    "sharp": "^0.35.3"
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "types": ["node"],
+    "noEmit": true,
+    "outDir": "dist",
+    "paths": {
+      "@smit/shared": ["../../packages/shared/src/index.ts"]
+    }
+  },
+  "include": ["src", "prisma", "tests", "vitest.config.ts"]
+}
