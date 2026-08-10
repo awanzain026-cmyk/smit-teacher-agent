@@ -12,7 +12,7 @@ const envSchema = z.object({
   QDRANT_API_KEY: z.string().optional(),
   QDRANT_COLLECTION: z.string().default("smit_course_docs"),
 
-  LLM_PROVIDER: z.enum(["gemini", "openrouter", "sodeom"]).default("gemini"),
+  LLM_PROVIDER: z.enum(["gemini", "openrouter", "sodeom"]).default("sodeom"),
   GEMINI_API_KEY: z.string().optional(),
   GEMINI_CHAT_MODEL: z.string().default("gemini-2.0-flash"),
   GEMINI_EMBED_MODEL: z.string().default("text-embedding-004"),
@@ -22,12 +22,12 @@ const envSchema = z.object({
   SODEOM_BASE_URL: z.string().url().default("https://sodeom.com/v1"),
   SODEOM_MODEL: z.string().default("gpt-4o-mini"),
 
-  JWT_ACCESS_SECRET: z.string().min(32, "JWT_ACCESS_SECRET must be at least 32 chars"),
-  JWT_REFRESH_SECRET: z.string().min(32, "JWT_REFRESH_SECRET must be at least 32 chars"),
+  JWT_ACCESS_SECRET: z.string().min(32).default("dev_only_access_secret_0123456789abcdef"),
+  JWT_REFRESH_SECRET: z.string().min(32).default("dev_only_refresh_secret_0123456789abcdef"),
   JWT_ACCESS_TTL: z.string().default("15m"),
   JWT_REFRESH_TTL: z.string().default("30d"),
 
-  ADMIN_SEED_SECRET: z.string().min(8),
+  ADMIN_SEED_SECRET: z.string().min(8).default("dev_admin_seed_12345678"),
 
   MAX_FILE_MB: z.coerce.number().int().positive().default(15),
   STORAGE_DIR: z.string().default("./storage"),
