@@ -7,8 +7,8 @@ management, document ingestion, and vector-based retrieval.
 ## Architecture
 
 ```
+./ (repo root)  Next.js 15 (App Router) frontend   → deploy on Vercel (auto-detected)
 apps/
-  web/          Next.js 15 (App Router) frontend   → deploy on Vercel
   api/          Express + Prisma + Qdrant backend  → deploy on Render / Railway
 packages/
   shared/       Shared TypeScript types (imported as `@smit/shared`)
@@ -45,7 +45,7 @@ npm run db:seed                 # creates admin@smit.edu.pk (password = ADMIN_SE
 npm run dev                     # API on :5000, web on :3000
 ```
 
-Point `NEXT_PUBLIC_API_URL` (in `apps/web/.env.local` if not using the default)
+Point `NEXT_PUBLIC_API_URL` (in a root `.env.local` if not using the default)
 at `http://localhost:5000` for local frontend → API calls.
 
 ## Project scripts
@@ -53,20 +53,17 @@ at `http://localhost:5000` for local frontend → API calls.
 | Command            | Purpose                                        |
 | ------------------ | ---------------------------------------------- |
 | `npm run dev`      | Run API + web together (concurrently)          |
-| `npm run build`    | Build shared, api, and web                     |
+| `npm run build`    | Build the Next.js web app (used by Vercel)     |
 | `npm run build:api`| Build shared + api (used by Render/Railway)    |
-| `npm run build:web`| Build web (used by Vercel)                     |
-| `npm run typecheck`| Type-check all workspaces                      |
+| `npm run typecheck`| Type-check web, api, and shared                |
 | `npm test`         | Run API tests (Vitest)                         |
 | `npm run db:*`     | `generate` / `deploy` / `migrate` / `seed`     |
 
 ## Deploying the frontend → Vercel
 
 1. Push this repo to GitHub and import it in Vercel.
-2. Project settings:
-   - **Root Directory**: `apps/web`
-   - **Framework Preset**: Next.js (auto-detected)
-   - **Build Command**: `next build` (already set in `apps/web/vercel.json`)
+2. No project settings needed — the Next.js app lives at the repo root, so Vercel
+   auto-detects it. Leave **Root Directory** empty (default `/`).
 3. Add the environment variable (Vercel → Settings → Environment Variables):
    - `NEXT_PUBLIC_API_URL` — e.g. `https://<your-api>.onrender.com`
 4. Deploy.
