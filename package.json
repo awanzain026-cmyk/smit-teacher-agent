@@ -9,7 +9,7 @@
   "scripts": {
     "dev": "concurrently -n api,web -c blue,magenta \"npm run dev -w @smit/api\" \"next dev\"",
     "dev:api": "npm run dev -w @smit/api",
-    "build": "next build",
+    "build": "npm run build:api && npm run db:generate && next build",
     "build:api": "npm run build -w @smit/shared && npm run build -w @smit/api",
     "start": "next start",
     "lint": "next lint && npm run lint -w @smit/api",
