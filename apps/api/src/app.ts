@@ -35,10 +35,13 @@ export function createApp() {
   app.use(express.json({ limit: "1mb" }));
   app.use(pinoHttp({ logger, autoLogging: { ignore: (req) => req.url?.startsWith("/health") ?? false } }));
 
-  // On Vercel the function is mounted at /api, so strip that prefix before routing
+  // On Vercel the function is mounted at /api, so strip that prefix before routing.
+  // Handles both /api/api/v1/* (same-origin frontend) and /api/v1/* (explicit base URL).
   if (process.env.VERCEL === "1") {
     app.use((req, _res, next) => {
-      if (req.url.startsWith("/api/")) req.url = req.url.slice(4) || "/";
+      if (req.url.startsWith("/api/") && !req.url.startsWith("/api/v1/")) {
+        req.url = req.url.slice(4) || "/";
+      }
       next();
     });
   }
