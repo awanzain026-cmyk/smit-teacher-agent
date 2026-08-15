@@ -13,10 +13,10 @@ ingestion, conversation history, and streaming chat — all in one monorepo.
 
 | Part | URL |
 | ---- | --- |
-| Frontend (Next.js on Vercel) | https://smit-teacher-agent-api-dhzq.vercel.app |
-| API (Express on Railway) | _pending — set once the Railway service is live_ |
+| App (frontend + API, same deployment) | https://smit-teacher-agent-api-dhzq.vercel.app |
 
-> The API health check is `GET /health` → `{"status":"ok",...}`.
+> The API health check is `GET /api/health` → `{"status":"ok",...}` (the API
+> runs as a serverless function inside the same Vercel project).
 
 ## Tech stack
 
@@ -47,7 +47,7 @@ apps/
     tests/          Vitest suites (chunker, RAG)
 packages/
   shared/           Shared TypeScript types (imported as `@smit/shared`)
-railway.json        Railway build/start config for the API
+api/index.mjs       Vercel serverless entry — mounts the Express app at /api
 ```
 
 ## RAG pipeline
@@ -114,32 +114,23 @@ Only **`DATABASE_URL`** is required; every other variable has a safe default.
 | ------- | ------- |
 | `npm run dev` | Run API + web together (concurrently) |
 | `npm run build` | Build the Next.js web app (used by Vercel) |
-| `npm run build:api` | Build shared + api (used by Railway via `railway.json`) |
+| `npm run build:api` | Build shared + api (bundled into the Vercel function) |
 | `npm run typecheck` | Type-check web, api, and shared |
 | `npm test` | Run API tests (Vitest) |
 | `npm run db:*` | `generate` / `deploy` / `migrate` / `seed` |
 
 ## Deployment
 
-### Frontend → Vercel
+The whole app — frontend **and** API — deploys as one project on Vercel.
 
 1. Import the repo on Vercel. The Next.js app lives at the repo root, so
    **Root Directory stays empty** — Vercel auto-detects it.
-2. Add the env var `NEXT_PUBLIC_API_URL` = the Railway API URL
-   (e.g. `https://<your-service>.up.railway.app`), then deploy.
-3. `NEXT_PUBLIC_*` variables are inlined at build time — redeploy after changing.
-
-### API → Railway
-
-The repo includes `railway.json` — no per-service settings needed.
-
-1. Import the repo on Railway and **leave the Root Directory empty** (repo
-   root) so `railway.json` is picked up.
-2. Railway runs `npm run build:api && npm run db:generate`, then starts with
-   `npm run start:api` (which runs `prisma migrate deploy` + admin seed +
-   server). Health check: `/health`.
-3. Add the env var `DATABASE_URL` (Neon connection string). Everything else
+2. Add the env var `DATABASE_URL` (Neon connection string). Everything else
    has defaults.
+3. Deploy. The build runs `prisma migrate deploy` + the admin seed, and the
+   `api/index.mjs` function serves the Express API at `/api` — the frontend
+   calls it same-origin, so no `NEXT_PUBLIC_API_URL` is needed.
+4. Health check: `GET /api/health`.
 
 ## Admin access
 
@@ -151,8 +142,8 @@ users in the `/admin` and `/settings` pages. Students register from the
 ## Notes & limitations
 
 - Uploaded files are stored on the API server's local disk, which is ephemeral
-  on Railway — files must be re-uploaded after a redeploy. Object storage
-  (S3/R2) is a planned enhancement.
+  on Vercel serverless functions — files must be re-uploaded after a redeploy.
+  Object storage (S3/R2) is a planned enhancement.
 - Without Qdrant + Gemini the ingestion pipeline is disabled and chat falls
   back to plain (non-cited) answers.
 - The API sleeps after ~15 min of inactivity on free Railway plans; the first
