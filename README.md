@@ -1,40 +1,82 @@
 # SMIT Teacher Agent
 
-AI-powered teaching assistant for SMIT: upload course materials, then chat with the
-AI about them with cited sources. Includes student/teacher/admin roles, course
-management, document ingestion, and vector-based retrieval.
+A RAG-powered AI teaching assistant for SMIT. Teachers upload course materials
+(PDF, DOCX, PPTX, TXT) and the system extracts the text, splits it into chunks,
+embeds it with **Gemini embeddings**, stores the vectors in **Qdrant**, and
+answers students' questions in chat with **citations back to the source
+documents**.
 
-## Architecture
+Role-based access (admin / teacher / student) with course management, document
+ingestion, conversation history, and streaming chat — all in one monorepo.
+
+## Live deployment
+
+| Part | URL |
+| ---- | --- |
+| Frontend (Next.js on Vercel) | https://smit-teacher-agent-api-dhzq.vercel.app |
+| API (Express on Railway) | _pending — set once the Railway service is live_ |
+
+> The API health check is `GET /health` → `{"status":"ok",...}`.
+
+## Tech stack
+
+| Layer | Technology |
+| ----- | ---------- |
+| Frontend | Next.js 15 (App Router), React 19, TypeScript, Tailwind CSS |
+| Backend | Express 4 (ESM), TypeScript, Zod validation, JWT auth (access + refresh), pino logging, Helmet, rate limiting, multer uploads |
+| Database | PostgreSQL (Neon) via Prisma ORM with committed migrations |
+| Vector DB | Qdrant (best-effort — the app runs without it) |
+| Embeddings | Google Gemini (`text-embedding-004`) |
+| LLM | Sodeom (default, free OpenAI-compatible proxy, **no API key**) or Gemini / OpenRouter |
+| Tests | Vitest + Supertest |
+| Builds | tsup (API), Next.js (web) |
+
+## Monorepo structure
 
 ```
-./ (repo root)  Next.js 15 (App Router) frontend   → deploy on Vercel (auto-detected)
+./ (repo root)      Next.js 15 frontend (app/, components/, lib/)
 apps/
-  api/          Express + Prisma + Qdrant backend  → deploy on Railway (railway.json)
+  api/              Express + Prisma + Qdrant backend
+    src/
+      config/       zod-validated environment configuration
+      middleware/   auth, rate limiting, file upload validation
+      routes/       auth, documents, courses, chat, conversations, admin
+      services/     parsing, chunking, embeddings, Qdrant, chat streaming
+      lib/          prisma client, logger, error helpers
+    prisma/         schema + committed migrations + admin seed
+    tests/          Vitest suites (chunker, RAG)
 packages/
-  shared/       Shared TypeScript types (imported as `@smit/shared`)
+  shared/           Shared TypeScript types (imported as `@smit/shared`)
+railway.json        Railway build/start config for the API
 ```
 
-- **Frontend**: Next.js 15, React 19, Tailwind CSS, Server Components.
-- **Backend**: Express 4 (ESM), Prisma ORM, JWT auth (access + refresh tokens),
-  Zod validation, pino logging, rate limiting, Helmet, multer uploads.
-- **RAG pipeline**: PDF/DOCX/PPTX → text chunks → Gemini embeddings → Qdrant
-  vector search → LLM chat with source citations. **LLM providers**: Sodeom
-  (free OpenAI-compatible proxy, no API key, chat only), Gemini (chat +
-  embeddings), or OpenRouter (chat only). With Sodeom/OpenRouter the app runs
-  with **zero keys** but document ingestion and cited answers are unavailable —
-  chat falls back to plain conversation.
-- **Database**: PostgreSQL (Neon recommended) via Prisma with committed migrations.
+## RAG pipeline
 
-## Prerequisites
+1. **Upload** — teacher uploads a file (PDF / DOCX / PPTX / TXT, ≤ 15 MB);
+   magic-byte signature is validated server-side.
+2. **Parsing** — `officeparser` extracts text (PDF included).
+3. **Chunking** — text is split into overlapping chunks (see
+   `apps/api/src/services/chunker.ts`).
+4. **Embedding** — chunks are embedded with Gemini `text-embedding-004`.
+5. **Retrieval** — at chat time the question is embedded and Qdrant returns the
+   most relevant chunks.
+6. **Cited answer** — the LLM answers using only the retrieved chunks and
+   cites the source documents.
+
+Without a Gemini key (default setup) the app runs in **zero-key mode**: chat
+works via Sodeom as a plain conversation, and document ingestion is disabled.
+
+## Local setup
+
+### Prerequisites
 
 - Node.js 20+ (`.nvmrc` pinned to 20)
-- Accounts: [Neon](https://neon.tech) (Postgres), [Qdrant Cloud](https://cloud.qdrant.io)
-  (vectors).
-- No AI key is required for the default **Sodeom** provider. Only add a free
-  [Google AI Studio](https://aistudio.google.com/apikey) key if you want
-  document ingestion + cited answers (`LLM_PROVIDER=gemini`).
+- A PostgreSQL database — [Neon](https://neon.tech) (free tier) is recommended
+- Optional: [Qdrant Cloud](https://cloud.qdrant.io) for vector search, and a
+  free [Google AI Studio](https://aistudio.google.com/apikey) key for
+  embeddings + cited answers
 
-## Local development
+### Install and run
 
 ```bash
 npm install
@@ -45,71 +87,73 @@ npm run db:seed                 # creates admin@smit.edu.pk (password = ADMIN_SE
 npm run dev                     # API on :5000, web on :3000
 ```
 
-Point `NEXT_PUBLIC_API_URL` (in a root `.env.local` if not using the default)
-at `http://localhost:5000` for local frontend → API calls.
+For local frontend → API calls, optionally set `NEXT_PUBLIC_API_URL=http://localhost:5000`
+in a root `.env.local` (not needed — the dev default already points there).
+
+### Environment variables
+
+Only **`DATABASE_URL`** is required; every other variable has a safe default.
+
+| Variable | Required | Default | Purpose |
+| -------- | -------- | ------- | ------- |
+| `DATABASE_URL` | ✅ | — | PostgreSQL connection string (Neon) |
+| `JWT_ACCESS_SECRET` | — | dev default | Signs access tokens (min 32 chars) |
+| `JWT_REFRESH_SECRET` | — | dev default | Signs refresh tokens (min 32 chars) |
+| `ADMIN_SEED_SECRET` | — | `dev_admin_seed_12345678` | Admin password + seed salt |
+| `LLM_PROVIDER` | — | `sodeom` | `sodeom` (zero-key) / `gemini` / `openrouter` |
+| `GEMINI_API_KEY` | — | — | Enables embeddings, ingestion, cited answers |
+| `QDRANT_URL` / `QDRANT_API_KEY` | — | localhost | Vector search (best-effort) |
+| `CORS_ORIGIN` | — | `http://localhost:3000` | Comma-separated allowed origins |
+| `API_PORT` | — | `5000` | API port (Railway injects `PORT`) |
+| `MAX_FILE_MB` | — | `15` | Upload size limit |
+| `NEXT_PUBLIC_API_URL` | — | `http://localhost:5000` | Frontend → API base URL (build-time, frontend only) |
 
 ## Project scripts
 
-| Command            | Purpose                                        |
-| ------------------ | ---------------------------------------------- |
-| `npm run dev`      | Run API + web together (concurrently)          |
-| `npm run build`    | Build the Next.js web app (used by Vercel)     |
-| `npm run build:api`| Build shared + api (used by Railway via `railway.json`) |
-| `npm run typecheck`| Type-check web, api, and shared                |
-| `npm test`         | Run API tests (Vitest)                         |
-| `npm run db:*`     | `generate` / `deploy` / `migrate` / `seed`     |
+| Command | Purpose |
+| ------- | ------- |
+| `npm run dev` | Run API + web together (concurrently) |
+| `npm run build` | Build the Next.js web app (used by Vercel) |
+| `npm run build:api` | Build shared + api (used by Railway via `railway.json`) |
+| `npm run typecheck` | Type-check web, api, and shared |
+| `npm test` | Run API tests (Vitest) |
+| `npm run db:*` | `generate` / `deploy` / `migrate` / `seed` |
 
-## Deploying the frontend → Vercel
+## Deployment
 
-1. Push this repo to GitHub and import it in Vercel.
-2. No project settings needed — the Next.js app lives at the repo root, so Vercel
-   auto-detects it. Leave **Root Directory** empty (default `/`).
-3. Add the environment variable (Vercel → Settings → Environment Variables):
-   - `NEXT_PUBLIC_API_URL` — e.g. `https://<your-api>.onrender.com`
-4. Deploy.
+### Frontend → Vercel
 
-> `NEXT_PUBLIC_*` variables are inlined at build time — if you change it, redeploy.
+1. Import the repo on Vercel. The Next.js app lives at the repo root, so
+   **Root Directory stays empty** — Vercel auto-detects it.
+2. Add the env var `NEXT_PUBLIC_API_URL` = the Railway API URL
+   (e.g. `https://<your-service>.up.railway.app`), then deploy.
+3. `NEXT_PUBLIC_*` variables are inlined at build time — redeploy after changing.
 
-## Deploying the API → Railway
+### API → Railway
 
-The repo includes `railway.json`, which tells Railway exactly how to build and
-start the API — no per-service settings needed.
+The repo includes `railway.json` — no per-service settings needed.
 
-1. Import the repo on Railway and **leave the service Root Directory empty**
-   (repo root) so `railway.json` is picked up.
-2. Railway runs: `npm run build:api && npm run db:generate` (builds shared +
-   api, generates the Prisma client) and starts with `npm run start:api`.
-3. Add the environment variable `DATABASE_URL` (your Neon connection string).
-   Everything else has defaults.
-4. Health check `/health` is configured; Railway injects `PORT` automatically.
-
-> The API runs `prisma migrate deploy` and seeds the admin user on every boot,
-> so the Neon database is migrated automatically on first deploy (both are
-> idempotent).
+1. Import the repo on Railway and **leave the Root Directory empty** (repo
+   root) so `railway.json` is picked up.
+2. Railway runs `npm run build:api && npm run db:generate`, then starts with
+   `npm run start:api` (which runs `prisma migrate deploy` + admin seed +
+   server). Health check: `/health`.
+3. Add the env var `DATABASE_URL` (Neon connection string). Everything else
+   has defaults.
 
 ## Admin access
 
-After seeding, sign in as `admin@smit.edu.pk` with password = `ADMIN_SEED_SECRET`
-(defaults to `dev_admin_seed_12345678` when unset). Admins can create courses,
-manage documents, and review users in the `/admin` and `/settings` pages.
+Sign in as `admin@smit.edu.pk` with password = `ADMIN_SEED_SECRET` (default
+`dev_admin_seed_12345678`). Admins create courses, manage documents, and review
+users in the `/admin` and `/settings` pages. Students register from the
+`/register` page.
 
-## Environment variables
-
-See [`.env.example`](.env.example) for the full annotated list. **Only
-`DATABASE_URL` is required** — every other variable has a safe default:
-
-- `JWT_ACCESS_SECRET` / `JWT_REFRESH_SECRET` / `ADMIN_SEED_SECRET` — optional
-  (dev defaults are used when unset; set your own in production).
-- `LLM_PROVIDER` — defaults to `sodeom` (free OpenAI-compatible proxy, no key
-  needed) for zero-key chat. Set `LLM_PROVIDER=gemini` + `GEMINI_API_KEY` to
-  enable document embeddings, ingestion, and cited answers.
-- `QDRANT_URL` / `QDRANT_API_KEY` — optional; vector search is best-effort and
-  the app runs fine without it.
-
-## Notes
+## Notes & limitations
 
 - Uploaded files are stored on the API server's local disk, which is ephemeral
-  on Render/Railway — files must be re-uploaded after a redeploy. Object storage
+  on Railway — files must be re-uploaded after a redeploy. Object storage
   (S3/R2) is a planned enhancement.
-- `QDRANT_COLLECTION` defaults to `smit_course_docs` and is created on boot with
-  the embedding dimension matching `GEMINI_EMBED_MODEL` (`EMBEDDING_DIM`).
+- Without Qdrant + Gemini the ingestion pipeline is disabled and chat falls
+  back to plain (non-cited) answers.
+- The API sleeps after ~15 min of inactivity on free Railway plans; the first
+  request after idle takes ~30–60 s to wake the service.
