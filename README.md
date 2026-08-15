@@ -9,7 +9,7 @@ management, document ingestion, and vector-based retrieval.
 ```
 ./ (repo root)  Next.js 15 (App Router) frontend   → deploy on Vercel (auto-detected)
 apps/
-  api/          Express + Prisma + Qdrant backend  → deploy on Render / Railway
+  api/          Express + Prisma + Qdrant backend  → deploy on Railway (railway.json)
 packages/
   shared/       Shared TypeScript types (imported as `@smit/shared`)
 ```
@@ -54,7 +54,7 @@ at `http://localhost:5000` for local frontend → API calls.
 | ------------------ | ---------------------------------------------- |
 | `npm run dev`      | Run API + web together (concurrently)          |
 | `npm run build`    | Build the Next.js web app (used by Vercel)     |
-| `npm run build:api`| Build shared + api (used by Render/Railway)    |
+| `npm run build:api`| Build shared + api (used by Railway via `railway.json`) |
 | `npm run typecheck`| Type-check web, api, and shared                |
 | `npm test`         | Run API tests (Vitest)                         |
 | `npm run db:*`     | `generate` / `deploy` / `migrate` / `seed`     |
@@ -70,27 +70,18 @@ at `http://localhost:5000` for local frontend → API calls.
 
 > `NEXT_PUBLIC_*` variables are inlined at build time — if you change it, redeploy.
 
-## Deploying the API → Render or Railway
+## Deploying the API → Railway
 
-The repo includes `render.yaml` (Render Blueprint) and `apps/api/Procfile`
-(used by both Render and Railway).
+The repo includes `railway.json`, which tells Railway exactly how to build and
+start the API — no per-service settings needed.
 
-### Render
-
-1. New → Blueprint → select the repo. Root directory is `apps/api`.
-2. Build: `npm run build && npx prisma generate`
-3. Start: `npm run start:prod` (runs `prisma migrate deploy`, then starts the server)
-4. Health check: `/health` (already configured).
-5. Set the secret env vars marked `sync: false` in `render.yaml`:
-   `DATABASE_URL`, `QDRANT_URL`, `QDRANT_API_KEY`, `GEMINI_API_KEY`,
-   `JWT_ACCESS_SECRET`, `JWT_REFRESH_SECRET`, `ADMIN_SEED_SECRET`.
-6. Set `CORS_ORIGIN` to include your Vercel app URL (comma-separated).
-
-### Railway
-
-1. Import the repo, set **Root Directory** to `apps/api`.
-2. The `Procfile` (`web: npm run start:prod`) is auto-detected.
-3. Add the same environment variables listed above (Railway injects `PORT`).
+1. Import the repo on Railway and **leave the service Root Directory empty**
+   (repo root) so `railway.json` is picked up.
+2. Railway runs: `npm run build:api && npm run db:generate` (builds shared +
+   api, generates the Prisma client) and starts with `npm run start:api`.
+3. Add the environment variable `DATABASE_URL` (your Neon connection string).
+   Everything else has defaults.
+4. Health check `/health` is configured; Railway injects `PORT` automatically.
 
 > The API runs `prisma migrate deploy` and seeds the admin user on every boot,
 > so the Neon database is migrated automatically on first deploy (both are
