@@ -11,7 +11,7 @@ services:
       - key: NODE_ENV
         value: production
       - key: CORS_ORIGIN
-        value: http://localhost:3000,https://<your-app>.vercel.app
+        value: http://localhost:3000,https://smit-teacher-agent-api-dhzq.vercel.app
       - key: QDRANT_COLLECTION
         value: smit_course_docs
       - key: LLM_PROVIDER
