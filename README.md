@@ -38,7 +38,7 @@ packages/
 
 ```bash
 npm install
-cp .env.example apps/api/.env   # fill in DATABASE_URL, QDRANT_URL, QDRANT_API_KEY, JWT secrets
+cp .env.example apps/api/.env   # only DATABASE_URL is truly required; everything else has defaults
 npm run db:generate             # prisma generate
 npm run db:deploy               # apply migrations to your Neon database
 npm run db:seed                 # creates admin@smit.edu.pk (password = ADMIN_SEED_SECRET)
@@ -92,25 +92,28 @@ The repo includes `render.yaml` (Render Blueprint) and `apps/api/Procfile`
 2. The `Procfile` (`web: npm run start:prod`) is auto-detected.
 3. Add the same environment variables listed above (Railway injects `PORT`).
 
-> The API runs `prisma migrate deploy` on every boot, so the Neon database is
-> migrated automatically on first deploy. Run `npm run db:seed` locally (or via
-> the seed endpoint) once to create the admin user.
+> The API runs `prisma migrate deploy` and seeds the admin user on every boot,
+> so the Neon database is migrated automatically on first deploy (both are
+> idempotent).
 
 ## Admin access
 
-After seeding, sign in as `admin@smit.edu.pk` with password = `ADMIN_SEED_SECRET`.
-Alternatively, call `POST /api/v1/auth/admin/seed` with `{ adminSeedSecret }` to
-promote yourself. Admins can create courses, manage documents, and review users
-in the `/admin` and `/settings` pages.
+After seeding, sign in as `admin@smit.edu.pk` with password = `ADMIN_SEED_SECRET`
+(defaults to `dev_admin_seed_12345678` when unset). Admins can create courses,
+manage documents, and review users in the `/admin` and `/settings` pages.
 
 ## Environment variables
 
-See [`.env.example`](.env.example) for the full annotated list. Required in all
-environments: `DATABASE_URL`, `QDRANT_URL`, `JWT_ACCESS_SECRET`,
-`JWT_REFRESH_SECRET`, `ADMIN_SEED_SECRET`, plus `QDRANT_API_KEY` for the cloud
-vector DB. Set `LLM_PROVIDER=sodeom` for zero-key chat (add `SODEOM_BASE_URL` /
-`SODEOM_MODEL` as needed), or `LLM_PROVIDER=gemini` with `GEMINI_API_KEY` to
-enable embeddings, ingestion, and cited answers.
+See [`.env.example`](.env.example) for the full annotated list. **Only
+`DATABASE_URL` is required** — every other variable has a safe default:
+
+- `JWT_ACCESS_SECRET` / `JWT_REFRESH_SECRET` / `ADMIN_SEED_SECRET` — optional
+  (dev defaults are used when unset; set your own in production).
+- `LLM_PROVIDER` — defaults to `sodeom` (free OpenAI-compatible proxy, no key
+  needed) for zero-key chat. Set `LLM_PROVIDER=gemini` + `GEMINI_API_KEY` to
+  enable document embeddings, ingestion, and cited answers.
+- `QDRANT_URL` / `QDRANT_API_KEY` — optional; vector search is best-effort and
+  the app runs fine without it.
 
 ## Notes
 
